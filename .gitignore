@@ -1,0 +1,13 @@
+.metadata
+.gradle
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+.loadpath
+
+/bin/
+/build/
+sysProps.xml
