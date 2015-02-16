@@ -5,6 +5,7 @@ import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
 import edu.wpi.first.wpilibj.Gyro;
 import edu.wpi.first.wpilibj.Joystick;
+import edu.wpi.first.wpilibj.PowerDistributionPanel;
 import edu.wpi.first.wpilibj.RobotDrive;
 import edu.wpi.first.wpilibj.SampleRobot;
 import edu.wpi.first.wpilibj.Talon;
@@ -39,6 +40,7 @@ public class Robot extends SampleRobot {
 	Compressor compressor;
 	DoubleSolenoid brake, grabber;
 	DigitalInput topLimit, bottomLimit;
+	PowerDistributionPanel pdp;
 
 	public Robot() {
 		frontRight = new Talon(3);
@@ -53,33 +55,73 @@ public class Robot extends SampleRobot {
 		winchStick = new Joystick(1);
 		winch = new Victor(4);
 		gyro = new Gyro(0);
+		pdp = new PowerDistributionPanel();
 
 		compressor = new Compressor(0);
 		grabber = new DoubleSolenoid(6, 7);
 		brake = new DoubleSolenoid(0, 1);
 		topLimit = new DigitalInput(0); 
 		bottomLimit = new DigitalInput(1);
-
+		
+				
+		grabber.set(DoubleSolenoid.Value.kReverse);
+		brake.set(DoubleSolenoid.Value.kReverse);
 	}
 
 	/**
 	 * Drive left & right motors for 2 seconds then stop
 	 */
 	public void autonomous() {
-
+		grabber.set(DoubleSolenoid.Value.kReverse);
+		brake.set(DoubleSolenoid.Value.kReverse);
+		myRobot.setSafetyEnabled(false);
+		
+		
+		winch.set(-0.6); //negative is up
+		Timer.delay(2);
+		winch.set(0);
+		brake.set(DoubleSolenoid.Value.kForward);
+		myRobot.mecanumDrive_Cartesian(0, -0.4, 0, 0); //negative is forward
+		Timer.delay(0.8);
+		myRobot.mecanumDrive_Cartesian(0, 0, 0, 0);
+		brake.set(DoubleSolenoid.Value.kReverse);
+		Timer.delay(3);
+		grabber.set(DoubleSolenoid.Value.kForward);
+		Timer.delay(1);
+		winch.set(-0.6);
+		Timer.delay(1);
+		brake.set(DoubleSolenoid.Value.kForward);
+		winch.set(0);
+		Timer.delay(0.2);
+		myRobot.mecanumDrive_Cartesian(0, 0, -0.32, 0); //negative rotates left
+		Timer.delay(2);
+		myRobot.mecanumDrive_Cartesian(0, 0, 0, 0);
+		myRobot.mecanumDrive_Cartesian(0, -0.5, 0, 0);
+		Timer.delay(3);
+		myRobot.mecanumDrive_Cartesian(0, 0, 0, 0);
+		
+		
 	}
 
 	public void operatorControl() {
 		myRobot.setSafetyEnabled(true);
 		boolean isBraked = false;
-		 
+		boolean isLatched = false;
+		grabber.set(DoubleSolenoid.Value.kReverse);
+		brake.set(DoubleSolenoid.Value.kReverse); 
 
 		while (isOperatorControl() && isEnabled()) {
+			//power();
+			SmartDashboard.putNumber("Voltage", pdp.getVoltage());
+			SmartDashboard.putNumber("Current", pdp.getTotalCurrent());
+			SmartDashboard.putNumber("winch motor 1", pdp.getCurrent(14));
+			SmartDashboard.putNumber("winch motor 2", pdp.getCurrent(15));
 			SmartDashboard.putBoolean("Upper Switch", topLimit.get());
 			SmartDashboard.putBoolean("BOttom Switch", bottomLimit.get());
 			SmartDashboard.putBoolean("Brake", isBraked);
 			SmartDashboard.putNumber("Winch Stick", winchStick.getY());
 			SmartDashboard.putNumber("Winch Value", winch.get());
+			SmartDashboard.putBoolean("Latched", isLatched);
 			x = stick.getX();
 			y = stick.getY();
 			twist = stick.getTwist();
@@ -89,7 +131,8 @@ public class Robot extends SampleRobot {
 
 			JoyX = a * Math.pow(x, 3) + (1 - a) * x;
 			JoyY = a * Math.pow(y, 3) + (1 - a) * y;
-			JoyTwist = a * Math.pow(twist, 3) + (1 - a) * twist;
+			//JoyTwist = a * Math.pow(twist, 3) + (1 - a) * twist;
+			JoyTwist = twist/2;
 
 			//System.out.println("gyro: " + gyro.getAngle());
 			myRobot.mecanumDrive_Cartesian(JoyX, JoyY, JoyTwist, 0);
@@ -121,17 +164,27 @@ public class Robot extends SampleRobot {
 
 			if (isTop && winchStick.getY() < 0 ) {
 				winch.set(0);
+				isLatched = true;
+				brake.set(DoubleSolenoid.Value.kForward);
+				isBraked = true;
 			}
 			else if (isBottom && winchStick.getY() > 0){
 				winch.set(0);
 			} else if (isBraked) {
 				winch.set(0);
+			} else if (isLatched) {
+				if (winchStick.getY() < 0) {
+					winch.set(0);
+				} else if(winchStick.getY() >= 0) {
+					isLatched = false;
+				}
 			} else {
 				winch.set(winchStick.getY());
 			}
 			
-			System.out.println("upper limit switch: " + topLimit.get());
-
+			//System.out.println("upper limit switch: " + topLimit.get());
+			SmartDashboard.putNumber("winch motor 1", pdp.getCurrent(14));
+			SmartDashboard.putNumber("winch motor 2", pdp.getCurrent(15));
 		}
 	}
 
@@ -139,5 +192,11 @@ public class Robot extends SampleRobot {
 	 * Runs during test mode
 	 */
 	public void test() {
+	}
+	
+	public void power() {
+		SmartDashboard.putNumber("Voltage", pdp.getVoltage());
+		SmartDashboard.putNumber("Current", pdp.getTotalCurrent());
+		
 	}
 }

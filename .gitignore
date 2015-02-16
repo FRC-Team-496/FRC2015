@@ -10,4 +10,5 @@ tmp/
 
 /bin/
 /build/
+/dist/
 sysProps.xml
